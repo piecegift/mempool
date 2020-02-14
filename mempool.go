@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/btcsuite/btcutil"
@@ -46,6 +47,10 @@ func iteration(ctx context.Context, baseURL string, handler Handler, txidCache *
 	if err != nil {
 		return fmt.Errorf("failed to GET %s: %v", txidsURL, err)
 	}
+	if res.StatusCode != http.StatusOK {
+		res.Body.Close()
+		return fmt.Errorf("failed to GET %s: HTTP status is %s", txidsURL, res.Status)
+	}
 
 	var txids []string
 	err = json.NewDecoder(res.Body).Decode(&txids)
@@ -71,6 +76,10 @@ func iteration(ctx context.Context, baseURL string, handler Handler, txidCache *
 		res, err := ctxhttp.Get(ctx, nil, txURL)
 		if err != nil {
 			return fmt.Errorf("failed to GET %s: %v", txURL, err)
+		}
+		if res.StatusCode != http.StatusOK {
+			res.Body.Close()
+			return fmt.Errorf("failed to GET %s: HTTP status is %s", txURL, res.Status)
 		}
 
 		var tx Transaction
