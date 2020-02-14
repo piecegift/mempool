@@ -13,7 +13,7 @@ import (
 	"golang.org/x/net/context/ctxhttp"
 )
 
-type Handler = func(ctx context.Context, address string, amount btcutil.Amount)
+type Handler = func(ctx context.Context, txid, address string, amount btcutil.Amount)
 
 func Start(ctx context.Context, testnet bool, handler Handler) {
 
@@ -81,7 +81,7 @@ func iteration(ctx context.Context, baseURL string, handler Handler, txidCache *
 		}
 
 		for _, vout := range tx.Vouts {
-			handler(ctx, vout.Address, vout.Amount)
+			handler(ctx, txid, vout.Address, vout.Amount)
 		}
 
 		if err := txidCache.Add(string(shortTxid), 1, cache.DefaultExpiration); err != nil {
