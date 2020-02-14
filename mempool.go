@@ -91,8 +91,9 @@ func iteration(ctx context.Context, baseURL string, handler Handler, txidCache *
 }
 
 type Transaction struct {
-	ID      string   `json:"txid"`
-	Outputs []Output `json:"vout"`
+	ID      string         `json:"txid"`
+	Outputs []Output       `json:"vout"`
+	Fee     btcutil.Amount `json:"fee"`
 }
 
 type Output struct {
