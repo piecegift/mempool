@@ -55,7 +55,7 @@ func iteration(ctx context.Context, baseURL string, handler Handler, txidCache *
 	}
 
 	for _, txid := range txids {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(250 * time.Millisecond)
 
 		shortTxid, err := hex.DecodeString(txid)
 		if err != nil {
