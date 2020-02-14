@@ -13,7 +13,7 @@ import (
 	"golang.org/x/net/context/ctxhttp"
 )
 
-type Handler = func(ctx context.Context, txid, address string, amount btcutil.Amount)
+type Handler = func(ctx context.Context, tx Transaction)
 
 func Start(ctx context.Context, testnet bool, handler Handler) {
 
@@ -73,16 +73,14 @@ func iteration(ctx context.Context, baseURL string, handler Handler, txidCache *
 			return fmt.Errorf("failed to GET %s: %v", txURL, err)
 		}
 
-		var tx tx
+		var tx Transaction
 		err = json.NewDecoder(res.Body).Decode(&tx)
 		res.Body.Close()
 		if err != nil {
 			return fmt.Errorf("failed to parse tx %s: %v", txid, err)
 		}
 
-		for _, vout := range tx.Vouts {
-			handler(ctx, txid, vout.Address, vout.Amount)
-		}
+		handler(ctx, tx)
 
 		if err := txidCache.Add(string(shortTxid), 1, cache.DefaultExpiration); err != nil {
 			panic(err)
@@ -92,11 +90,12 @@ func iteration(ctx context.Context, baseURL string, handler Handler, txidCache *
 	return nil
 }
 
-type tx struct {
-	Vouts []vout `json:"vout"`
+type Transaction struct {
+	ID      string   `json:"txid"`
+	Outputs []Output `json:"vout"`
 }
 
-type vout struct {
+type Output struct {
 	Address string         `json:"scriptpubkey_address"`
 	Amount  btcutil.Amount `json:"value"`
 }
