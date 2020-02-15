@@ -17,12 +17,6 @@ import (
 type Handler = func(ctx context.Context, tx Transaction)
 
 func Start(ctx context.Context, testnet bool, handler Handler) {
-
-	baseURL := "https://blockstream.info/api"
-	if testnet {
-		baseURL = "https://blockstream.info/testnet/api"
-	}
-
 	txidCache := cache.New(time.Hour, 2*time.Hour)
 
 	for {
@@ -34,14 +28,14 @@ func Start(ctx context.Context, testnet bool, handler Handler) {
 		case <-timer.C:
 		}
 
-		if err := iteration(ctx, baseURL, handler, txidCache); err != nil {
+		if err := iteration(ctx, testnet, handler, txidCache); err != nil {
 			log.Printf("Error when getting mempool: %v.", err)
 		}
 	}
 }
 
-func iteration(ctx context.Context, baseURL string, handler Handler, txidCache *cache.Cache) error {
-	txidsURL := baseURL + "/mempool/txids"
+func iteration(ctx context.Context, testnet bool, handler Handler, txidCache *cache.Cache) error {
+	txidsURL := getBaseURL(testnet) + "/mempool/txids"
 
 	res, err := ctxhttp.Get(ctx, nil, txidsURL)
 	if err != nil {
@@ -71,22 +65,9 @@ func iteration(ctx context.Context, baseURL string, handler Handler, txidCache *
 			continue
 		}
 
-		txURL := baseURL + "/tx/" + txid
-
-		res, err := ctxhttp.Get(ctx, nil, txURL)
+		tx, err := GetTx(ctx, testnet, txid)
 		if err != nil {
-			return fmt.Errorf("failed to GET %s: %v", txURL, err)
-		}
-		if res.StatusCode != http.StatusOK {
-			res.Body.Close()
-			return fmt.Errorf("failed to GET %s: HTTP status is %s", txURL, res.Status)
-		}
-
-		var tx Transaction
-		err = json.NewDecoder(res.Body).Decode(&tx)
-		res.Body.Close()
-		if err != nil {
-			return fmt.Errorf("failed to parse tx %s: %v", txid, err)
+			return err
 		}
 
 		handler(ctx, tx)
@@ -108,4 +89,33 @@ type Transaction struct {
 type Output struct {
 	Address string         `json:"scriptpubkey_address"`
 	Amount  btcutil.Amount `json:"value"`
+}
+
+func getBaseURL(testnet bool) string {
+	if testnet {
+		return "https://blockstream.info/testnet/api"
+	} else {
+		return "https://blockstream.info/api"
+	}
+}
+
+func GetTx(ctx context.Context, testnet bool, txid string) (Transaction, error) {
+	txURL := getBaseURL(testnet) + "/tx/" + txid
+
+	res, err := ctxhttp.Get(ctx, nil, txURL)
+	if err != nil {
+		return Transaction{}, fmt.Errorf("failed to GET %s: %v", txURL, err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return Transaction{}, fmt.Errorf("failed to GET %s: HTTP status is %s", txURL, res.Status)
+	}
+
+	var tx Transaction
+	if err := json.NewDecoder(res.Body).Decode(&tx); err != nil {
+		return Transaction{}, fmt.Errorf("failed to parse tx %s: %v", txid, err)
+	}
+
+	return tx, nil
 }
